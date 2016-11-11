@@ -7,14 +7,51 @@
   service: name="{{ lldp_service_name[ansible_os_family] }}" state=started enabled=yes
 
 - name: check if sysName is enabled
-  command: lldptool -i {{ lldp_interface }} -t -V sysName
+  command: "lldptool -i {{ item }} -t -V sysName"
   register: reg_lldp_sysname
-  when: lldp_transmit_sysname and lldp_interface != ""
+  when: lldp_transmit_sysname
+  with_items: "{{ ansible_interfaces }}"
+  always_run: True
+  changed_when: False
+  failed_when: False
 
 - name: print reg_lldp_sysname
-  debug: var=reg_lldp_sysname
+  debug: var=reg_lldp_sysname['results']
+
+#- name: set fact
+#  set_fact: fact_lldp_sysname_these="[]"
+#
+- name: print item0
+  debug: var=reg_lldp_sysname['results'][0]
+
+- name: print items
+  debug: var=item['item']
+  with_items: "{{ reg_lldp_sysname['results'] }}"
+  when: item['rc'] == 0
+
+- name: print fact_lldp_sysname_these
+  debug: var=fact_lldp_sysname_these
+
+- name: add active and well typed interfaces
+  set_fact: fact_lldp_sysname_these="{{ item }}"
+  with_items: "{{ reg_lldp_sysname['results'] }}"
+  when: item['rc'] == 0
+
+- name: print fact_lldp_sysname_these round 2
+  debug: var=fact_lldp_sysname_these
+
+- name: print items 3
+  debug: var=item
+  with_items: "{{ fact_lldp_sysname_these }}"
+
+- name: print interfaces
+  with_items: "{{ ansible_interfaces }}"
+  debug: var=ansible_{{ item }}['type']
 
 - name: transmit sysName
-  command: lldptool -i {{ lldp_interface }} -T -V sysName enableTx=yes
-  with_items: ansible_interfaces
-  when: lldp_transmit_sysname and reg_lldp_sysname.stdout_lines = "" and ansible_{{ item }}['active'] and ansible_{{ item }}['ipv4']['type'] != "loopback"
+  command: "lldptool -i {{ item }} -T -V sysName enableTx=yes"
+  with_items: "{{ ansible_interfaces }}"
+  when: 
+   - lldp_transmit_sysname 
+   - ansible_{{ item }}['active'] == true 
+   - (ansible_{{ item }}['type'] != "loopback" and ansible_{{ item }}['type'] is defined)
