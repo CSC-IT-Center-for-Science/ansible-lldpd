@@ -9,3 +9,6 @@ lldp_service_name:
       'FreeBSD': 'lldpd'
       'RedHat': 'lldpad'
       'Debian': 'lldpd'
+      
+#
+lldp_transmit_sysname: True

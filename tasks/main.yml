@@ -6,3 +6,15 @@
 - name: ensure lldpd is started and available at boot
   service: name="{{ lldp_service_name[ansible_os_family] }}" state=started enabled=yes
 
+- name: check if sysName is enabled
+  command: lldptool -i {{ lldp_interface }} -t -V sysName
+  register: reg_lldp_sysname
+  when: lldp_transmit_sysname and lldp_interface != ""
+
+- name: print reg_lldp_sysname
+  debug: var=reg_lldp_sysname
+
+- name: transmit sysName
+  command: lldptool -i {{ lldp_interface }} -T -V sysName enableTx=yes
+  with_items: ansible_interfaces
+  when: lldp_transmit_sysname and reg_lldp_sysname.stdout_lines = "" and ansible_{{ item }}['active'] and ansible_{{ item }}['ipv4']['type'] != "loopback"
